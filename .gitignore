@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Server uploads (local only)
+uploads/
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Server files (keep local only)
+server.js
+package.json
+package-lock.json
+
+# IDE
+.vscode/
+.idea/

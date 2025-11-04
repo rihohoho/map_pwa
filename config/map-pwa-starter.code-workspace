@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "map-pwa-starter",
+			"path": ".."
+		},
+		{
+			"name": "config",
+			"path": "../../Downloads/room-layout-pwa/config"
+		}
+	],
+	"settings": {}
+}
