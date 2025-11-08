@@ -185,18 +185,28 @@ exportBtn.addEventListener('click', async ()=>{
   const blob=new Blob([csv],{type:'text/csv'});
   const formData=new FormData();
   formData.append('file',blob,'path_grid_segments.csv');
-  try{
-    // Try local server first, fallback to download
-    const uploadUrl = 'http://localhost:3000/upload';
-    const res=await fetch(uploadUrl,{method:'POST',body:formData});
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    const result = await res.json();
-    showToast(`CSVをローカルサーバへ送信しました (${result.filename})`);
-  }catch(err){
-    console.error('CSV upload failed',err);
-    showToast('ローカルサーバーに接続できません。CSVをダウンロードしました');
-    downloadCsv(csv);
+  
+  // Determine upload URL based on environment
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const uploadUrl = isLocalhost ? 'http://localhost:3000/upload' : null;
+  
+  if(uploadUrl) {
+    try{
+      console.log('Attempting to upload to:', uploadUrl);
+      const res=await fetch(uploadUrl,{method:'POST',body:formData});
+      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      const result = await res.json();
+      showToast(`CSVをローカルサーバへ送信しました (${result.filename})`);
+      return;
+    }catch(err){
+      console.error('CSV upload failed to local server:',err);
+      console.log('Falling back to download...');
+    }
   }
+  
+  // Fallback: download CSV file
+  showToast('ローカルサーバー接続不可。CSVをダウンロードします');
+  downloadCsv(csv);
 });
 
 Promise.all([
