@@ -1,0 +1,14 @@
+# Netlify configuration for mixed content
+# This file should be placed in the root directory
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:3000 https://*; img-src 'self' data:; script-src 'self' 'unsafe-inline'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

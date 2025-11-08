@@ -198,11 +198,22 @@ exportBtn.addEventListener('click', async ()=>{
   // Check environment and try multiple upload methods
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const isHTTPS = window.location.protocol === 'https:';
+  const isGitHubPages = window.location.hostname.includes('github.io');
+  const isNetlify = window.location.hostname.includes('netlify.app');
+  const isVercel = window.location.hostname.includes('vercel.app');
   
-  console.log('Environment:', { hostname: window.location.hostname, protocol: window.location.protocol, isLocalhost, isHTTPS });
+  console.log('Environment:', { 
+    hostname: window.location.hostname, 
+    protocol: window.location.protocol, 
+    isLocalhost, 
+    isHTTPS,
+    isGitHubPages,
+    isNetlify,
+    isVercel
+  });
   
-  // Method 1: Try local server (only on localhost)
-  if(isLocalhost) {
+  // Method 1: Try local server (localhost or hosting services that allow mixed content)
+  if(isLocalhost || isNetlify || isVercel) {
     try{
       const blob=new Blob([csv],{type:'text/csv'});
       const formData=new FormData();
@@ -216,6 +227,10 @@ exportBtn.addEventListener('click', async ()=>{
       return;
     }catch(err){
       console.error('Local server upload failed:',err);
+      if(isLocalhost) {
+        showToast('❌ ローカルサーバーが起動していません', 3000);
+        return;
+      }
     }
   }
   
