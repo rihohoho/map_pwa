@@ -195,16 +195,18 @@ exportBtn.addEventListener('click', async ()=>{
   }
   const csv=rows.map(r=>r.join(',')).join('\n');
   
-  // Check environment and try multiple upload methods
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isHTTPS = window.location.protocol === 'https:';
-  const isGitHubPages = window.location.hostname.includes('github.io');
-  const isNetlify = window.location.hostname.includes('netlify.app');
-  const isVercel = window.location.hostname.includes('vercel.app');
+  // Environment detection
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  const isHTTPS = protocol === 'https:';
+  const isGitHubPages = hostname.includes('github.io');
+  const isNetlify = hostname.includes('netlify.app') || hostname.includes('netlify.com');
+  const isVercel = hostname.includes('vercel.app') || hostname.includes('vercel.com');
   
-  console.log('Environment:', { 
-    hostname: window.location.hostname, 
-    protocol: window.location.protocol, 
+  console.log('🌐 Environment Detection:', { 
+    hostname, 
+    protocol, 
     isLocalhost, 
     isHTTPS,
     isGitHubPages,
@@ -212,45 +214,55 @@ exportBtn.addEventListener('click', async ()=>{
     isVercel
   });
   
-  // Method 1: Try local server (localhost or hosting services that allow mixed content)
-  if(isLocalhost || isNetlify || isVercel) {
+  // Always try to upload to local server first (except GitHub Pages)
+  if(!isGitHubPages) {
+    console.log('🚀 Attempting upload to local server...');
+    showToast('📡 ローカルサーバーへの送信を試行中...', 1000);
+    
     try{
       const blob=new Blob([csv],{type:'text/csv'});
       const formData=new FormData();
       formData.append('file',blob,'path_grid_segments.csv');
       
-      console.log('🚀 Attempting upload to local server...');
-      console.log('Environment details:', {isLocalhost, isNetlify, isVercel, hostname: window.location.hostname});
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒タイムアウト
       
-      const res=await fetch('http://localhost:3000/upload',{method:'POST',body:formData});
-      if(!res.ok)throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      const result = await res.json();
-      console.log('✅ Upload successful:', result);
-      showToast(`✅ ローカルサーバへ送信完了 (${result.filename})`);
-      return;
-    }catch(err){
-      console.error('❌ Local server upload failed:',err);
-      console.log('Error details:', {
-        name: err.name,
-        message: err.message,
-        stack: err.stack
+      const res=await fetch('http://localhost:3000/upload', {
+        method:'POST',
+        body:formData,
+        signal: controller.signal
       });
       
-      if(isLocalhost) {
-        showToast('❌ ローカルサーバーが起動していません。npm start で起動してください', 4000);
-        return;
-      } else if(isNetlify || isVercel) {
-        showToast('❌ ローカルサーバー接続失敗。ブラウザ開発者ツールでエラーを確認してください', 4000);
+      clearTimeout(timeoutId);
+      
+      if(!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const result = await res.json();
+      console.log('✅ Upload successful:', result);
+      showToast(`✅ ローカルサーバへ送信完了 (${result.filename})`, 3000);
+      return;
+      
+    }catch(err){
+      console.error('❌ Local server upload failed:', err);
+      
+      if(err.name === 'AbortError') {
+        console.log('Upload timed out after 5 seconds');
+        showToast('⏰ サーバー接続タイムアウト。ローカルサーバーが起動しているか確認してください', 4000);
+      } else if(err.message.includes('Failed to fetch')) {
+        console.log('Network error - likely CORS or mixed content blocking');
+        showToast('🔒 ネットワークエラー。Mixed Contentがブロックされている可能性があります', 4000);
+      } else {
+        showToast(`❌ サーバーエラー: ${err.message}`, 4000);
       }
     }
   }
   
-  // Method 2: For GitHub Pages - Enhanced download with clipboard option
-  if(isHTTPS && window.location.hostname.includes('github.io')) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `path_grid_segments-${timestamp}.csv`;
-    
-    // Show copy button for easy data sharing
+  // Fallback: Download CSV
+  console.log('📥 Falling back to CSV download');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `path_grid_segments-${timestamp}.csv`;
+  
+  // Show copy button for easy data sharing
+  if(copyBtn) {
     copyBtn.hidden = false;
     copyBtn.onclick = async () => {
       try {
@@ -261,15 +273,15 @@ exportBtn.addEventListener('click', async ()=>{
         showToast('❌ クリップボードコピーに失敗しました', 2000);
       }
     };
-    
-    downloadCsv(csv, filename);
-    showToast('📥 CSVダウンロード完了。クリップボードコピーも可能です', 4000);
-    return;
   }
   
-  // Method 3: Fallback download
-  downloadCsv(csv);
-  showToast('📥 CSVファイルをダウンロードしました');
+  downloadCsv(csv, filename);
+  
+  if(isGitHubPages) {
+    showToast('📥 GitHub Pages環境のため、CSVをダウンロードしました', 3000);
+  } else {
+    showToast('📥 ローカルサーバー接続失敗。CSVをダウンロードしました', 3000);
+  }
 });
 
 Promise.all([
