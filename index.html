@@ -219,17 +219,28 @@ exportBtn.addEventListener('click', async ()=>{
       const formData=new FormData();
       formData.append('file',blob,'path_grid_segments.csv');
       
-      console.log('Attempting upload to local server...');
+      console.log('🚀 Attempting upload to local server...');
+      console.log('Environment details:', {isLocalhost, isNetlify, isVercel, hostname: window.location.hostname});
+      
       const res=await fetch('http://localhost:3000/upload',{method:'POST',body:formData});
-      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      if(!res.ok)throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const result = await res.json();
+      console.log('✅ Upload successful:', result);
       showToast(`✅ ローカルサーバへ送信完了 (${result.filename})`);
       return;
     }catch(err){
-      console.error('Local server upload failed:',err);
+      console.error('❌ Local server upload failed:',err);
+      console.log('Error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
+      
       if(isLocalhost) {
-        showToast('❌ ローカルサーバーが起動していません', 3000);
+        showToast('❌ ローカルサーバーが起動していません。npm start で起動してください', 4000);
         return;
+      } else if(isNetlify || isVercel) {
+        showToast('❌ ローカルサーバー接続失敗。ブラウザ開発者ツールでエラーを確認してください', 4000);
       }
     }
   }
