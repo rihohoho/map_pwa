@@ -68,7 +68,17 @@ function canvasToWorld(cx,cy){let wx,wy;switch(ROOM.origin){case'SW':wx=(cx-ox)/
 function toCanvasPoint(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()};}
 function smoothPath(points,alpha){if(points.length===0)return[];const out=[{...points[0]}];for(let i=1;i<points.length;i++){const p=points[i],q=out[i-1];out.push({t:p.t,x:q.x+alpha*(p.x-q.x),y:q.y+alpha*(p.y-q.y)});}return out;}
 function showToast(message,duration=2200){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),duration);}
-function downloadCsv(csv){const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='path_grid_segments.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function downloadCsv(csv, filename){
+  const defaultFilename = filename || 'path_grid_segments.csv';
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=defaultFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 function toSouthWest(wx,wy){
   switch(ROOM.origin){
@@ -182,31 +192,52 @@ exportBtn.addEventListener('click', async ()=>{
     rows.push([(segmentStartT-t0).toFixed(1),(lastT-t0).toFixed(1),currentId]);
   }
   const csv=rows.map(r=>r.join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const formData=new FormData();
-  formData.append('file',blob,'path_grid_segments.csv');
   
-  // Determine upload URL based on environment
+  // Check environment and try multiple upload methods
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const uploadUrl = isLocalhost ? 'http://localhost:3000/upload' : null;
+  const isHTTPS = window.location.protocol === 'https:';
   
-  if(uploadUrl) {
+  console.log('Environment:', { hostname: window.location.hostname, protocol: window.location.protocol, isLocalhost, isHTTPS });
+  
+  // Method 1: Try local server (only on localhost)
+  if(isLocalhost) {
     try{
-      console.log('Attempting to upload to:', uploadUrl);
-      const res=await fetch(uploadUrl,{method:'POST',body:formData});
+      const blob=new Blob([csv],{type:'text/csv'});
+      const formData=new FormData();
+      formData.append('file',blob,'path_grid_segments.csv');
+      
+      console.log('Attempting upload to local server...');
+      const res=await fetch('http://localhost:3000/upload',{method:'POST',body:formData});
       if(!res.ok)throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
-      showToast(`CSVをローカルサーバへ送信しました (${result.filename})`);
+      showToast(`✅ ローカルサーバへ送信完了 (${result.filename})`);
       return;
     }catch(err){
-      console.error('CSV upload failed to local server:',err);
-      console.log('Falling back to download...');
+      console.error('Local server upload failed:',err);
     }
   }
   
-  // Fallback: download CSV file
-  showToast('ローカルサーバー接続不可。CSVをダウンロードします');
+  // Method 2: For GitHub Pages - Enhanced download with instructions
+  if(isHTTPS && window.location.hostname.includes('github.io')) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `path_grid_segments-${timestamp}.csv`;
+    downloadCsv(csv, filename);
+    
+    // Show instructions for manual data sharing
+    showToast('📥 CSVダウンロード完了。ローカルサーバーが起動していればアップロード可能です', 4000);
+    
+    // Try to detect if local server is available (will fail due to CORS but gives user info)
+    try {
+      await fetch('http://localhost:3000/health', {mode: 'no-cors'});
+    } catch(e) {
+      console.log('Local server not accessible from HTTPS (expected)');
+    }
+    return;
+  }
+  
+  // Method 3: Fallback download
   downloadCsv(csv);
+  showToast('📥 CSVファイルをダウンロードしました');
 });
 
 Promise.all([
