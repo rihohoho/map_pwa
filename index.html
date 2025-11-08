@@ -24,12 +24,13 @@
 </style>
 </head>
 <body>
-<header>
+  <header>
   <span id="room">Loading...</span>
   <button id="drawBtn" class="primary">描画</button>
   <button id="exportBtn">CSV</button>
   <button id="resetBtn">リセット</button>
   <button id="installBtn" hidden>インストール</button>
+  <button id="copyBtn" hidden>クリップボード</button>
   <span id="info"></span>
 </header>
 <canvas id="cv"></canvas>
@@ -48,6 +49,7 @@ const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const drawBtn=document.getElementById('drawBtn');
 const exportBtn=document.getElementById('exportBtn');
 const resetBtn=document.getElementById('resetBtn');
+const copyBtn=document.getElementById('copyBtn');
 const roomEl=document.getElementById('room');
 const info=document.getElementById('info');
 const toast=document.getElementById('toast');
@@ -217,21 +219,25 @@ exportBtn.addEventListener('click', async ()=>{
     }
   }
   
-  // Method 2: For GitHub Pages - Enhanced download with instructions
+  // Method 2: For GitHub Pages - Enhanced download with clipboard option
   if(isHTTPS && window.location.hostname.includes('github.io')) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `path_grid_segments-${timestamp}.csv`;
+    
+    // Show copy button for easy data sharing
+    copyBtn.hidden = false;
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(csv);
+        showToast('📋 CSVデータをクリップボードにコピーしました', 2000);
+      } catch(err) {
+        console.error('Clipboard copy failed:', err);
+        showToast('❌ クリップボードコピーに失敗しました', 2000);
+      }
+    };
+    
     downloadCsv(csv, filename);
-    
-    // Show instructions for manual data sharing
-    showToast('📥 CSVダウンロード完了。ローカルサーバーが起動していればアップロード可能です', 4000);
-    
-    // Try to detect if local server is available (will fail due to CORS but gives user info)
-    try {
-      await fetch('http://localhost:3000/health', {mode: 'no-cors'});
-    } catch(e) {
-      console.log('Local server not accessible from HTTPS (expected)');
-    }
+    showToast('📥 CSVダウンロード完了。クリップボードコピーも可能です', 4000);
     return;
   }
   
